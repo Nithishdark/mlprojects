@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Height to weight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --wall: #e8edf1; --ink: #17222d; --muted: #5d6b78;
+    --wood: #e2c08d; --wood-dark: #5b4528; --pencil: #2543c9; --warn: #8a4b00; --err: #a3261b;
+    --note-bg: #17222d; --note-fg: #fff;
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --wall: #141b22; --ink: #eef2f5; --muted: #98a6b3;
+      --wood: #8a6a43; --wood-dark: #f1dcb8; --pencil: #7f9bff; --warn: #f0b36a; --err: #ff8c80;
+      --note-bg: #eef2f5; --note-fg: #141b22;
+    }
+  }
+  :root[data-theme="dark"] {
+    --wall: #141b22; --ink: #eef2f5; --muted: #98a6b3;
+    --wood: #8a6a43; --wood-dark: #f1dcb8; --pencil: #7f9bff; --warn: #f0b36a; --err: #ff8c80;
+    --note-bg: #eef2f5; --note-fg: #141b22;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--wall); color: var(--ink); min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+  main { width: 100%; max-width: 760px; display: grid; grid-template-columns: 150px 1fr; gap: 48px; }
+  .ruler { position: relative; height: 540px; background: var(--wood); border-radius: 4px; margin-top: 20px; }
+  .range { position: absolute; left: 0; right: 0; background: rgba(127,155,255,.22); border-top: 1px dashed var(--pencil); border-bottom: 1px dashed var(--pencil); }
+  .range-note { position: absolute; left: 50px; right: 4px; top: 0; transform: translateY(-100%); font-size: 11px; color: var(--pencil); font-weight: 600; }
+  .tick { position: absolute; left: 0; height: 1px; width: 12px; background: var(--wood-dark); }
+  .tick.five { width: 22px; }
+  .tick.ten { width: 34px; height: 2px; }
+  .tick-label { position: absolute; left: 40px; transform: translateY(50%); font-size: 13px; font-weight: 600; color: var(--wood-dark); }
+  .mark { position: absolute; left: -12px; right: -12px; height: 3px; background: var(--pencil); transition: bottom .25s ease; }
+  .mark span { position: absolute; right: 6px; bottom: 6px; background: var(--note-bg); color: var(--note-fg); font-size: 13px; font-weight: 600; padding: 2px 8px; border-radius: 3px; }
+  .panel { display: flex; flex-direction: column; justify-content: center; gap: 28px; min-width: 0; }
+  h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.05; margin: 0 0 12px; font-weight: 800; letter-spacing: -0.02em; }
+  p.lede { margin: 0; color: var(--muted); max-width: 38ch; line-height: 1.5; }
+  label { display: block; font-weight: 600; margin-bottom: 8px; }
+  .field { display: flex; align-items: baseline; gap: 10px; border-bottom: 3px solid var(--ink); padding-bottom: 4px; max-width: 280px; }
+  input { font: inherit; font-size: 3rem; font-weight: 800; width: 100%; background: transparent; border: 0; color: var(--ink); padding: 0; -moz-appearance: textfield; }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input:focus-visible { outline: 3px solid var(--pencil); outline-offset: 4px; }
+  .unit { font-size: 1.25rem; color: var(--muted); font-weight: 600; }
+  .result { min-height: 130px; }
+  .big { font-size: clamp(3.5rem, 10vw, 5.5rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+  .big small { font-size: 1.5rem; font-weight: 600; color: var(--muted); margin-left: 6px; letter-spacing: 0; }
+  .label { color: var(--muted); margin-top: 6px; }
+  .note { color: var(--warn); font-weight: 600; margin-top: 10px; max-width: 40ch; line-height: 1.4; }
+  .error { color: var(--err); font-weight: 600; }
+  .fine { color: var(--muted); font-size: .85rem; line-height: 1.4; max-width: 44ch; }
+  @media (max-width: 640px) { main { grid-template-columns: 96px 1fr; gap: 24px; } .ruler { height: 420px; } }
+  @media (prefers-reduced-motion: reduce) { .mark { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="ruler" id="ruler" aria-hidden="true">
+    <div class="range" id="range"><div class="range-note">trained on 147–183 cm</div></div>
+    <div class="mark" id="mark"><span id="markTag">165 cm</span></div>
+  </div>
+  <section class="panel">
+    <div>
+      <h1>Estimate weight from height</h1>
+      <p class="lede">A simple linear regression fitted to heights of 147–183 cm. Type a height and the mark moves.</p>
+    </div>
+    <form id="form" autocomplete="off">
+      <label for="height">Height</label>
+      <div class="field">
+        <input id="height" type="number" inputmode="decimal" step="0.1" min="100" max="250" value="165" required>
+        <span class="unit">cm</span>
+      </div>
+    </form>
+    <div class="result" id="result" aria-live="polite"></div>
+    <p class="fine">weight (kg) = 62.107 × height (m) − 40.564, the coefficients of the trained model.</p>
+  </section>
+</main>
+<script>
+  const COEF = 62.10683012259193, INTERCEPT = -40.56429231014168;
+  const MIN = 140, MAX = 190, LO = 147, HI = 183;
+  const ruler = document.getElementById("ruler");
+  const pct = cm => Math.min(100, Math.max(0, (cm - MIN) / (MAX - MIN) * 100));
+  for (let cm = MIN; cm <= MAX; cm++) {
+    const t = document.createElement("div");
+    t.className = "tick" + (cm % 10 === 0 ? " ten" : cm % 5 === 0 ? " five" : "");
+    t.style.bottom = pct(cm) + "%";
+    ruler.appendChild(t);
+    if (cm % 10 === 0) {
+      const l = document.createElement("div");
+      l.className = "tick-label"; l.textContent = cm; l.style.bottom = pct(cm) + "%";
+      ruler.appendChild(l);
+    }
+  }
+  const range = document.getElementById("range");
+  range.style.bottom = pct(LO) + "%";
+  range.style.height = (pct(HI) - pct(LO)) + "%";
+  const input = document.getElementById("height");
+  const mark = document.getElementById("mark");
+  const markTag = document.getElementById("markTag");
+  const result = document.getElementById("result");
+
+  function predict() {
+    const cm = parseFloat(input.value);
+    if (Number.isNaN(cm)) { result.innerHTML = '<div class="label">Enter a height to see the estimate.</div>'; return; }
+    if (cm < 100 || cm > 250) { result.innerHTML = '<div class="error">Enter a height between 100 and 250 cm.</div>'; return; }
+    mark.style.bottom = pct(cm) + "%";
+    markTag.textContent = cm + " cm";
+    const kg = (COEF * (cm / 100) + INTERCEPT).toFixed(1);
+    result.innerHTML = '<div class="big">' + kg + '<small>kg</small></div>' +
+      '<div class="label">Estimated weight at ' + cm + ' cm</div>' +
+      ((cm < LO || cm > HI) ? '<div class="note">This height is outside the ' + LO + '–' + HI + ' cm the model learned from, so the estimate is a rough extrapolation.</div>' : '');
+  }
+  input.addEventListener("input", predict);
+  document.getElementById("form").addEventListener("submit", e => { e.preventDefault(); predict(); });
+  predict();
+</script>
+</body>
+</html>
