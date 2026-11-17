@@ -81,14 +81,14 @@
       </div>
     </form>
     <div class="result" id="result" aria-live="polite"></div>
-    <p class="fine">weight (kg) = 62.107 × height (m) − 40.564, the coefficients of the trained model.</p>
+   <p class="fine">Estimates come from a linear regression model loaded from task_slr.pkl on the server.</p>
   </section>
 </main>
 <script>
-  const COEF = 62.10683012259193, INTERCEPT = -40.56429231014168;
   const MIN = 140, MAX = 190, LO = 147, HI = 183;
   const ruler = document.getElementById("ruler");
   const pct = cm => Math.min(100, Math.max(0, (cm - MIN) / (MAX - MIN) * 100));
+
   for (let cm = MIN; cm <= MAX; cm++) {
     const t = document.createElement("div");
     t.className = "tick" + (cm % 10 === 0 ? " ten" : cm % 5 === 0 ? " five" : "");
@@ -100,26 +100,40 @@
       ruler.appendChild(l);
     }
   }
+
   const range = document.getElementById("range");
   range.style.bottom = pct(LO) + "%";
   range.style.height = (pct(HI) - pct(LO)) + "%";
+
   const input = document.getElementById("height");
   const mark = document.getElementById("mark");
   const markTag = document.getElementById("markTag");
   const result = document.getElementById("result");
 
-  function predict() {
+  async function predict() {
     const cm = parseFloat(input.value);
     if (Number.isNaN(cm)) { result.innerHTML = '<div class="label">Enter a height to see the estimate.</div>'; return; }
     if (cm < 100 || cm > 250) { result.innerHTML = '<div class="error">Enter a height between 100 and 250 cm.</div>'; return; }
     mark.style.bottom = pct(cm) + "%";
     markTag.textContent = cm + " cm";
-    const kg = (COEF * (cm / 100) + INTERCEPT).toFixed(1);
-    result.innerHTML = '<div class="big">' + kg + '<small>kg</small></div>' +
-      '<div class="label">Estimated weight at ' + cm + ' cm</div>' +
-      ((cm < LO || cm > HI) ? '<div class="note">This height is outside the ' + LO + '–' + HI + ' cm the model learned from, so the estimate is a rough extrapolation.</div>' : '');
+    try {
+      const res = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ height_cm: cm })
+      });
+      const data = await res.json();
+      if (!res.ok) { result.innerHTML = '<div class="error">' + data.error + '</div>'; return; }
+      result.innerHTML = '<div class="big">' + data.weight_kg + '<small>kg</small></div>' +
+        '<div class="label">Estimated weight at ' + cm + ' cm</div>' +
+        ((cm < LO || cm > HI) ? '<div class="note">This height is outside the ' + LO + '–' + HI + ' cm the model learned from, so the estimate is a rough extrapolation.</div>' : '');
+    } catch (e) {
+      result.innerHTML = '<div class="error">Could not reach the server. Try again.</div>';
+    }
   }
-  input.addEventListener("input", predict);
+
+  let timer;
+  input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(predict, 200); });
   document.getElementById("form").addEventListener("submit", e => { e.preventDefault(); predict(); });
   predict();
 </script>
